@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NPS Insights</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f3;
+      color: #1a1a1a;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    .dash-header {
+      background: #1e2a1e;
+      color: #fff;
+      border-radius: 10px;
+      text-align: center;
+      padding: 16px;
+      font-size: 18px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      margin-bottom: 16px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      border: 0.5px solid rgba(0,0,0,0.1);
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #aaa;
+      margin-bottom: 10px;
+    }
+
+    .top-row {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 600px) {
+      .top-row { grid-template-columns: repeat(3, 1fr); }
+      .sliders-grid { grid-template-columns: 1fr !important; }
+    }
+
+    .stat {
+      border-radius: 8px;
+      padding: 12px 8px;
+      text-align: center;
+    }
+    .stat .slabel {
+      font-size: 11px;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+    .stat .sval {
+      font-size: 28px;
+      font-weight: 500;
+    }
+
+    .s-blue   { background: #1565a0; }
+    .s-blue   .slabel, .s-blue   .sval { color: #b5d4f4; }
+    .s-green  { background: #3b6d11; }
+    .s-green  .slabel, .s-green  .sval { color: #c0dd97; }
+    .s-amber  { background: #854f0b; }
+    .s-amber  .slabel, .s-amber  .sval { color: #fac775; }
+    .s-red    { background: #a32d2d; }
+    .s-red    .slabel, .s-red    .sval { color: #f7c1c1; }
+    .s-gray   { background: #444441; }
+    .s-gray   .slabel, .s-gray   .sval { color: #d3d1c7; }
+
+    .nps-box {
+      border-radius: 8px;
+      padding: 12px 8px;
+      text-align: center;
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .nps-box .slabel { font-size: 11px; font-weight: 500; margin-bottom: 6px; }
+    .nps-box .sval   { font-size: 28px; font-weight: 500; }
+
+    .nps-box.above { background: #e8f8f2; border: 0.5px solid rgba(29,158,117,0.4); }
+    .nps-box.above .slabel, .nps-box.above .sval { color: #0f6e56; }
+    .nps-box.below { background: #fdeaea; border: 0.5px solid rgba(162,45,45,0.4); }
+    .nps-box.below .slabel, .nps-box.below .sval { color: #a32d2d; }
+
+    .divider { border: none; border-top: 0.5px solid rgba(0,0,0,0.08); margin: 16px 0; }
+
+    .resp-bar { margin-bottom: 16px; }
+    .rb-label { font-size: 12px; color: #888; margin-bottom: 6px; }
+    .rb-track {
+      height: 12px;
+      border-radius: 6px;
+      background: #e5e5e3;
+      overflow: hidden;
+      display: flex;
+    }
+    .rb-pro { background: #1D9E75; height: 100%; transition: width 0.3s; }
+    .rb-neu { background: #BA7517; height: 100%; transition: width 0.3s; }
+    .rb-det { background: #D85A30; height: 100%; transition: width 0.3s; }
+    .rb-rem { background: #d3d1c7; height: 100%; transition: width 0.3s; }
+    .rb-legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      font-size: 12px;
+      color: #666;
+    }
+    .rb-dot {
+      width: 9px; height: 9px;
+      border-radius: 2px;
+      display: inline-block;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    .sliders-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .sg label { font-size: 12px; color: #666; display: block; margin-bottom: 7px; }
+    .sg .srow { display: flex; align-items: center; gap: 10px; }
+    .sg input[type=range] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    .sg-pro input[type=range] { background: #1D9E75; }
+    .sg-neu input[type=range] { background: #BA7517; }
+    .sg-det input[type=range] { background: #D85A30; }
+    .sg input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #1a1a1a;
+      cursor: pointer;
+    }
+    .snum { font-size: 14px; font-weight: 500; min-width: 24px; text-align: right; color: #1a1a1a; }
+
+    .chart-legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+      font-size: 12px;
+      color: #666;
+    }
+    .cl-item { display: flex; align-items: center; gap: 5px; }
+    .cl-dot   { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+      height: 280px;
+      margin-bottom: 12px;
+    }
+
+    .insight {
+      font-size: 13px;
+      color: #666;
+      border-top: 0.5px solid rgba(0,0,0,0.08);
+      padding-top: 12px;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: #aaa;
+      margin-top: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="dash-header">NPS INSIGHTS</div>
+
+  <div class="card">
+    <div class="section-label">live snapshot</div>
+    <div class="top-row">
+      <div class="stat s-blue">
+        <div class="slabel">Total surveys</div>
+        <div class="sval">50</div>
+      </div>
+      <div class="stat s-green">
+        <div class="slabel">Promoters</div>
+        <div class="sval" id="dPro">0</div>
+      </div>
+      <div class="stat s-amber">
+        <div class="slabel">Neutral</div>
+        <div class="sval" id="dNeu">0</div>
+      </div>
+      <div class="stat s-red">
+        <div class="slabel">Detractors</div>
+        <div class="sval" id="dDet">0</div>
+      </div>
+      <div class="stat s-gray">
+        <div class="slabel">Not responded</div>
+        <div class="sval" id="dRem">50</div>
+      </div>
+      <div class="nps-box above" id="npsBox">
+        <div class="slabel">NPS score</div>
+        <div class="sval" id="dNPS">—</div>
+      </div>
+    </div>
+
+    <div class="resp-bar">
+      <div class="rb-label">response composition (out of 50 surveys)</div>
+      <div class="rb-track">
+        <div class="rb-pro" id="barPro" style="width:0%"></div>
+        <div class="rb-neu" id="barNeu" style="width:0%"></div>
+        <div class="rb-det" id="barDet" style="width:0%"></div>
+        <div class="rb-rem" id="barRem" style="width:100%"></div>
+      </div>
+      <div class="rb-legend">
+        <span><span class="rb-dot" style="background:#1D9E75;"></span>Promoters: <strong id="legPro">0</strong></span>
+        <span><span class="rb-dot" style="background:#BA7517;"></span>Neutrals: <strong id="legNeu">0</strong></span>
+        <span><span class="rb-dot" style="background:#D85A30;"></span>Detractors: <strong id="legDet">0</strong></span>
+        <span><span class="rb-dot" style="background:#d3d1c7;"></span>Not responded: <strong id="legRem">50</strong></span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section-label">scenario builder — slide to simulate responses</div>
+    <div class="sliders-grid">
+      <div class="sg sg-pro">
+        <label>Promoters (scores 9–10)</label>
+        <div class="srow">
+          <input type="range" min="0" max="50" value="0" step="1" id="slPro" />
+          <span class="snum" id="svPro">0</span>
+        </div>
+      </div>
+      <div class="sg sg-neu">
+        <label>Neutrals / passives (scores 7–8)</label>
+        <div class="srow">
+          <input type="range" min="0" max="50" value="0" step="1" id="slNeu" />
+          <span class="snum" id="svNeu">0</span>
+        </div>
+      </div>
+      <div class="sg sg-det">
+        <label>Detractors (scores 0–6)</label>
+        <div class="srow">
+          <input type="range" min="0" max="50" value="0" step="1" id="slDet" />
+          <span class="snum" id="svDet">0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-legend">
+      <span class="cl-item"><span class="cl-dot" style="background:#1D9E75;"></span> NPS &ge; 90 (target met)</span>
+      <span class="cl-item"><span class="cl-dot" style="background:#D85A30;"></span> NPS &lt; 90 (below target)</span>
+      <span class="cl-item"><span class="cl-dot" style="background:#BA7517;height:3px;border-radius:0;margin:3px 0;"></span> Target line: 90</span>
+      <span class="cl-item"><span class="cl-dot" style="background:#7F77DD;border-radius:50%;"></span> Your current scenario</span>
+    </div>
+
+    <div class="chart-wrap">
+      <canvas id="npsChart"></canvas>
+    </div>
+
+    <div class="insight" id="insight">Move the sliders above to simulate your NPS scenario.</div>
+  </div>
+
+  <div class="footer">NPS = (Promoters &minus; Detractors) &divide; Total responded &times; 100 &nbsp;|&nbsp; Target: NPS 90+</div>
+
+</div>
+
+<script>
+const TOTAL  = 50;
+const TARGET = 90;
+
+const slPro  = document.getElementById('slPro');
+const slNeu  = document.getElementById('slNeu');
+const slDet  = document.getElementById('slDet');
+const svPro  = document.getElementById('svPro');
+const svNeu  = document.getElementById('svNeu');
+const svDet  = document.getElementById('svDet');
+const dPro   = document.getElementById('dPro');
+const dNeu   = document.getElementById('dNeu');
+const dDet   = document.getElementById('dDet');
+const dRem   = document.getElementById('dRem');
+const dNPS   = document.getElementById('dNPS');
+const npsBox = document.getElementById('npsBox');
+const insight= document.getElementById('insight');
+const barPro = document.getElementById('barPro');
+const barNeu = document.getElementById('barNeu');
+const barDet = document.getElementById('barDet');
+const barRem = document.getElementById('barRem');
+const legPro = document.getElementById('legPro');
+const legNeu = document.getElementById('legNeu');
+const legDet = document.getElementById('legDet');
+const legRem = document.getElementById('legRem');
+
+function calcNPS(p, d, t) {
+  if (t === 0) return null;
+  return Math.round(((p - d) / t) * 100);
+}
+
+const chartLabels = Array.from({length: 51}, (_, i) => i);
+const ctx = document.getElementById('npsChart').getContext('2d');
+
+const chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: chartLabels,
+    datasets: [
+      {
+        label: 'NPS >= 90',
+        data: [],
+        borderColor: '#1D9E75',
+        tension: 0.3,
+        fill: false,
+        pointRadius: 2,
+        pointBackgroundColor: '#1D9E75',
+        spanGaps: false
+      },
+      {
+        label: 'NPS < 90',
+        data: [],
+        borderColor: '#D85A30',
+        tension: 0.3,
+        fill: false,
+        pointRadius: 2,
+        pointBackgroundColor: '#D85A30',
+        spanGaps: false
+      },
+      {
+        label: 'Target',
+        data: new Array(51).fill(90),
+        borderColor: '#BA7517',
+        borderDash: [6, 4],
+        pointRadius: 0,
+        tension: 0
+      },
+      {
+        label: 'Scenario',
+        data: [],
+        borderColor: '#7F77DD',
+        pointRadius: 8,
+        pointBackgroundColor: '#7F77DD',
+        showLine: false
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          title: items => items[0].label + ' promoters',
+          label: item => {
+            const v = item.raw;
+            const sign = v >= 0 ? '+' : '';
+            return item.dataset.label === 'Scenario'
+              ? 'Your scenario: NPS ' + sign + v
+              : 'NPS: ' + sign + v;
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        title: { display: true, text: 'number of promoters', font: { size: 12 }, color: '#888' },
+        ticks: { color: '#888', maxTicksLimit: 11 },
+        grid: { color: 'rgba(0,0,0,0.05)' }
+      },
+      y: {
+        min: -100,
+        max: 100,
+        title: { display: true, text: 'NPS score', font: { size: 12 }, color: '#888' },
+        ticks: { color: '#888', callback: v => (v >= 0 ? '+' : '') + v },
+        grid: { color: 'rgba(0,0,0,0.05)' }
+      }
+    }
+  }
+});
+
+function update() {
+  let p = parseInt(slPro.value);
+  let n = parseInt(slNeu.value);
+  let d = parseInt(slDet.value);
+
+  if (p + n + d > TOTAL) {
+    d = Math.min(d, TOTAL - p - n);
+    if (d < 0) { d = 0; n = Math.min(n, TOTAL - p); }
+    if (p + n + d > TOTAL) { n = TOTAL - p - d; }
+    slPro.value = p; slNeu.value = n; slDet.value = d;
+  }
+
+  const total = p + n + d;
+  const rem   = TOTAL - total;
+  const nps   = total > 0 ? calcNPS(p, d, total) : null;
+
+  svPro.textContent = p;  svNeu.textContent = n;  svDet.textContent = d;
+  dPro.textContent  = p;  dNeu.textContent  = n;  dDet.textContent  = d;
+  dRem.textContent  = rem;
+  legPro.textContent= p;  legNeu.textContent= n;  legDet.textContent= d;  legRem.textContent= rem;
+
+  barPro.style.width = (p / TOTAL * 100).toFixed(1) + '%';
+  barNeu.style.width = (n / TOTAL * 100).toFixed(1) + '%';
+  barDet.style.width = (d / TOTAL * 100).toFixed(1) + '%';
+  barRem.style.width = (rem / TOTAL * 100).toFixed(1) + '%';
+
+  if (nps === null) {
+    dNPS.textContent    = '—';
+    npsBox.className    = 'nps-box above';
+    insight.innerHTML   = 'Move the sliders above to simulate your NPS scenario.';
+  } else {
+    dNPS.textContent = (nps >= 0 ? '+' : '') + nps;
+    npsBox.className = nps >= TARGET ? 'nps-box above' : 'nps-box below';
+  }
+
+  const above = [], below = [];
+  for (let pp = 0; pp <= 50; pp++) {
+    const t2 = pp + n + d;
+    if (t2 === 0 || t2 > TOTAL) { above.push(null); below.push(null); continue; }
+    const sc = calcNPS(pp, d, t2);
+    above.push(sc >= TARGET ? sc : null);
+    below.push(sc <  TARGET ? sc : null);
+  }
+  chart.data.datasets[0].data = above;
+  chart.data.datasets[1].data = below;
+
+  const scenData = new Array(51).fill(null);
+  if (nps !== null && p <= 50) scenData[p] = nps;
+  chart.data.datasets[3].data = scenData;
+  chart.update();
+
+  if (nps !== null) {
+    if (nps >= TARGET) {
+      let maxNeu = n;
+      for (let nn = n; nn <= TOTAL; nn++) {
+        if (p + nn + d > TOTAL) break;
+        if (calcNPS(p, d, p + nn + d) >= TARGET) maxNeu = nn; else break;
+      }
+      insight.innerHTML = 'With <strong>' + p + ' promoters</strong>, ' + n + ' neutrals, and ' + d + ' detractors — NPS is <strong>' + (nps >= 0 ? '+' : '') + nps + '</strong>. You can absorb up to <strong>' + maxNeu + ' total neutral' + (maxNeu !== 1 ? 's' : '') + '</strong> at this promoter count before dropping below 90.';
+    } else {
+      let minP = null;
+      for (let pp = p; pp <= 50; pp++) {
+        const t2 = pp + n + d;
+        if (t2 > TOTAL) break;
+        if (calcNPS(pp, d, t2) >= TARGET) { minP = pp; break; }
+      }
+      if (minP !== null) {
+        insight.innerHTML = 'Currently projecting <strong>NPS ' + (nps >= 0 ? '+' : '') + nps + '</strong>. You need <strong>' + minP + ' promoters</strong> (' + (minP - p) + ' more) to reach 90 with ' + n + ' neutral' + (n !== 1 ? 's' : '') + ' and ' + d + ' detractor' + (d !== 1 ? 's' : '') + '.';
+      } else {
+        insight.innerHTML = 'With ' + n + ' neutrals and ' + d + ' detractors, NPS 90 is not reachable within 50 surveys. Try reducing neutrals or detractors.';
+      }
+    }
+  }
+}
+
+slPro.addEventListener('input', update);
+slNeu.addEventListener('input', update);
+slDet.addEventListener('input', update);
+update();
+</script>
+</body>
+</html>
